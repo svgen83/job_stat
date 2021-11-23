@@ -12,12 +12,11 @@ pip install -r requirements.txt
 ```
 #### Programm setting
 
-In order for the program to work correctly, create an .env file in the program folder containing the key for accessing the superjob.ru website.
+In order for the program to work correctly, create an .env file in the program folder containing the key for accessing the [superjob.ru website](https://www.superjob.ru/).
 Write it like this:
 
 ```
 SUPERJOB_KEY="number of key"
-
 ```
 The access key should be obtained according to the [instructions](https://api.superjob.ru/?from_refresh=1).
 
