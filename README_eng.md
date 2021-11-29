@@ -1,6 +1,6 @@
 ﻿# Job_stat
 This program is designed to calculate the expected average salary and the number of vacancies for programmers who speak the most popular programming languages.
-For the calculation for the used data for the city of Moscow (Russia), taken from the web-sites [superjob.ru](https://www.superjob.ru/) and [hh.ru](https://www.hh.ru/). 
+To calculate the salary, used data for the city of Moscow (Russia), taken from the web-sites [superjob.ru](https://www.superjob.ru/) and [hh.ru](https://www.hh.ru/). 
 
 ### How to setup
 
