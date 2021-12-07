@@ -6,55 +6,63 @@ from terminaltables import AsciiTable
 
 
 def fetch_vacancies_from_hh(name_vacancy, languages, period, region_id):
-    hh_url = "https://api.hh.ru/vacancies"
     vacancies = {}
     params = {"period": period, "area": region_id}
     for language in languages:
-        page_records = []
-        page = 0
-        pages_number = 1
         params.update({"text": name_vacancy.format(language)})
-        while page < pages_number:
-            params.update({"page": page})
-            page_response = requests.get(
-                hh_url, params=params)
-            page_response.raise_for_status()
-            load_page = page_response.json()
-            pages_number = load_page["pages"]
-            page += 1
-            page_records += load_page["items"]
-        vacancies[language] = page_records
+        vacancies[language] = fetch_vacancy_from_hh(params)
     return vacancies
 
 
+def fetch_vacancy_from_hh(params):
+    hh_url = "https://api.hh.ru/vacancies"
+    page_records = []
+    page = 0
+    pages_number = 1  
+    while page < pages_number:
+        params.update({"page": page})
+        page_response = requests.get(
+                hh_url, params=params)
+        page_response.raise_for_status()
+        load_page = page_response.json()
+        pages_number = load_page["pages"]
+        page += 1
+        page_records += load_page["items"]
+    return page_records
+
 def fetch_vacancies_from_superjob(name_vacancy, languages, period,
                                   region_id):
-    vacancy_superjob_url = "https://api.superjob.ru/2.0/oauth2/vacancies/"
     vacancies = {}
-    headers = {"X-Api-App-Id": superjob_key}
+    
     params = {
         "catalogues": "Разработка, программирование",
         "period": period,
         "town": superjob_region_id
     }
     for language in languages:
-        page_records = []
-        page = 0
-        more_results = True
         params.update({"keyword": name_vacancy.format(language)})
-        while more_results:
-            params.update({"page": page})
-            page_response = requests.get(
-                vacancy_superjob_url,
-                headers=headers,
-                params=params)
-            page_response.raise_for_status()
-            load_page = page_response.json()
-            more_results = load_page["more"]
-            page += 1
-            page_records += load_page["objects"]
-        vacancies[language] = page_records
+        vacancies[language] = fetch_vacancy_from_superjob(params)
     return vacancies
+
+
+def fetch_vacancy_from_superjob(params):
+    vacancy_superjob_url = "https://api.superjob.ru/2.0/oauth2/vacancies/"
+    headers = {"X-Api-App-Id": superjob_key}
+    page_records = []
+    page = 0
+    more_results = True
+    while more_results:
+        params.update({"page": page})
+        page_response = requests.get(
+        vacancy_superjob_url,
+        headers=headers,
+        params=params)
+        page_response.raise_for_status()
+        load_page = page_response.json()
+        more_results = load_page["more"]
+        page += 1
+        page_records += load_page["objects"]
+    return page_records
 
 
 def count_vacancies(vacancies, treshold_value, predict_rub_salary):
