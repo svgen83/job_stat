@@ -2,6 +2,7 @@ import os
 import requests
 
 from dotenv import load_dotenv
+from itertools import count
 from terminaltables import AsciiTable
 
 
@@ -17,16 +18,15 @@ def fetch_vacancies_from_hh(name_vacancy, languages, period, region_id):
 def fetch_vacancy_from_hh(params):
     hh_url = "https://api.hh.ru/vacancies"
     page_records = []
-    page = 0
+    page = count(0,1)
     pages_number = 1  
-    while page < pages_number:
-        params.update({"page": page})
+    while next(page) < pages_number:
+        params.update({"page": next(page)})
         page_response = requests.get(
                 hh_url, params=params)
         page_response.raise_for_status()
         load_page = page_response.json()
         pages_number = load_page["pages"]
-        page += 1
         page_records += load_page["items"]
     return page_records
 
@@ -49,10 +49,10 @@ def fetch_vacancy_from_superjob(params):
     vacancy_superjob_url = "https://api.superjob.ru/2.0/oauth2/vacancies/"
     headers = {"X-Api-App-Id": superjob_key}
     page_records = []
-    page = 0
+    page = count(0,1)
     more_results = True
     while more_results:
-        params.update({"page": page})
+        params.update({"page": next(page)})
         page_response = requests.get(
         vacancy_superjob_url,
         headers=headers,
@@ -60,7 +60,6 @@ def fetch_vacancy_from_superjob(params):
         page_response.raise_for_status()
         load_page = page_response.json()
         more_results = load_page["more"]
-        page += 1
         page_records += load_page["objects"]
     return page_records
 
