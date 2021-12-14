@@ -6,11 +6,11 @@ from itertools import count
 from terminaltables import AsciiTable
 
 
-def fetch_vacancies_from_hh(name_vacancy, languages, period, region_id):
+def fetch_vacancies_from_hh(vacancy_template, languages, period, region_id):
     vacancies = {}
     params = {"period": period, "area": region_id}
     for language in languages:
-        params.update({"text": name_vacancy.format(language)})
+        params.update({"text": vacancy_template.format(language)})
         vacancies[language] = fetch_vacancy_from_hh(params)
     return vacancies
 
@@ -25,12 +25,12 @@ def fetch_vacancy_from_hh(params):
         page_response = requests.get(
                 hh_url, params=params)
         page_response.raise_for_status()
-        load_page = page_response.json()
-        pages_number = load_page["pages"]
-        page_records += load_page["items"]
+        loaded_page = page_response.json()
+        pages_number = loaded_page["pages"]
+        page_records += loaded_page["items"]
     return page_records
 
-def fetch_vacancies_from_superjob(name_vacancy, languages, period,
+def fetch_vacancies_from_superjob(vacancy_template, languages, period,
                                   region_id):
     vacancies = {}
     
@@ -40,7 +40,7 @@ def fetch_vacancies_from_superjob(name_vacancy, languages, period,
         "town": superjob_region_id
     }
     for language in languages:
-        params.update({"keyword": name_vacancy.format(language)})
+        params.update({"keyword": vacancy_template.format(language)})
         vacancies[language] = fetch_vacancy_from_superjob(params)
     return vacancies
 
@@ -58,9 +58,9 @@ def fetch_vacancy_from_superjob(params):
         headers=headers,
         params=params)
         page_response.raise_for_status()
-        load_page = page_response.json()
-        more_results = load_page["more"]
-        page_records += load_page["objects"]
+        loaded_page = page_response.json()
+        more_results = loaded_page["more"]
+        page_records += loaded_page["objects"]
     return page_records
 
 
@@ -116,14 +116,14 @@ def predict_rub_salary_for_superjob(vacancies):
     return salaries
 
 
-def estimate_vacancies_and_salaries(counted_vacancies, head_table):
-    table_data = [("Язык", "Вакансий найдено", "Вакансий обработано",
+def output_statistic(counted_vacancies, head_table):
+    table_contents = [("Язык", "Вакансий найдено", "Вакансий обработано",
                    "Средняя зарплата")]
-    for language, vacancy_data in counted_vacancies.items():
-        table_data.append((language, vacancy_data["vacancies_found"],
-                           vacancy_data["vacancies_processed"],
-                           vacancy_data["average_salary"]))
-    table = AsciiTable(table_data, head_table)
+    for language, vacancy_statistic in counted_vacancies.items():
+        table_contents.append((language, vacancy_statistic["vacancies_found"],
+                           vacancy_statistic["vacancies_processed"],
+                           vacancy_statistic["average_salary"]))
+    table = AsciiTable(table_contents, head_table)
     return table.table
 
 
@@ -136,7 +136,7 @@ if __name__ == "__main__":
         "Scala", "Swift", "R", "Kotlin", "1 С"
     ]
 
-    name_vacancy = "программист {}"
+    vacancy_template = "программист {}"
     period = 1
     hh_region_id = 1
     hh_treshold_value = 100
@@ -144,7 +144,7 @@ if __name__ == "__main__":
     superjob_region_id = 4
     superjob_treshold_value = 10
 
-    superjob_vacancies = fetch_vacancies_from_superjob(name_vacancy, languages,
+    superjob_vacancies = fetch_vacancies_from_superjob(vacancy_template, languages,
                                                        period,
                                                        superjob_region_id)
 
@@ -152,12 +152,12 @@ if __name__ == "__main__":
                                          superjob_treshold_value,
                                          predict_rub_salary_for_superjob)
 
-    print(estimate_vacancies_and_salaries(superjob_statistic, "superjob"))
+    print(output_statistic(superjob_statistic, "superjob"))
 
-    hh_vacancies = fetch_vacancies_from_hh(name_vacancy, languages, period,
+    hh_vacancies = fetch_vacancies_from_hh(vacancy_template, languages, period,
                                            hh_region_id)
 
     hh_statistic = count_vacancies(hh_vacancies, hh_treshold_value,
                                    predict_rub_salary_for_hh)
 
-    print(estimate_vacancies_and_salaries(hh_statistic, "headhunter"))
+    print(output_statistic(hh_statistic, "headhunter"))
