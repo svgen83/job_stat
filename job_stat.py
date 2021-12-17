@@ -17,16 +17,15 @@ def fetch_vacancies_from_hh(vacancy_template, languages, period, region_id):
 
 def fetch_vacancy_from_hh(params):
     hh_url = "https://api.hh.ru/vacancies"
-    page_records = []
-    page = count(0,1)
-    pages_number = 1  
-    while next(page) < pages_number:
-        params.update({"page": next(page)})
+    page_records = [] 
+    for page in count(0, 1):
+        params.update({"page":page})
         page_response = requests.get(
                 hh_url, params=params)
         page_response.raise_for_status()
         loaded_page = page_response.json()
-        pages_number = loaded_page["pages"]
+        if page > loaded_page["pages"]:
+            break
         page_records += loaded_page["items"]
     return page_records
 
@@ -49,17 +48,16 @@ def fetch_vacancy_from_superjob(params):
     vacancy_superjob_url = "https://api.superjob.ru/2.0/oauth2/vacancies/"
     headers = {"X-Api-App-Id": superjob_key}
     page_records = []
-    page = count(0,1)
-    more_results = True
-    while more_results:
-        params.update({"page": next(page)})
+    for page in count(0, 1):
+        params.update({"page":page})
         page_response = requests.get(
         vacancy_superjob_url,
         headers=headers,
         params=params)
         page_response.raise_for_status()
         loaded_page = page_response.json()
-        more_results = loaded_page["more"]
+        if loaded_page["more"] is False:
+            break
         page_records += loaded_page["objects"]
     return page_records
 
