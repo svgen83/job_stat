@@ -8,23 +8,24 @@ from terminaltables import AsciiTable
 
 def fetch_statistic_from_hh(vacancy_template, languages, period, region_id):
     hh_vacancies = {}
+    hh_url = "https://api.hh.ru/vacancies"
     params = {"period": period, "area": region_id}
     for language in languages:
         params.update({"text": vacancy_template.format(language)})
-        hh_page_records = fetch_records_from_hh(params)
-        counted_vacancy = hh_calculate(hh_page_records)
+        hh_page_records = fetch_records_from_hh(hh_url,None,params)
+        if hh_page_records[0]["found"]>100:
+            counted_vacancy = hh_calculate(hh_page_records)
         if counted_vacancy:
             hh_vacancies[language] = counted_vacancy
     return hh_vacancies
 
 
-def fetch_records_from_hh(params):
-    hh_url = "https://api.hh.ru/vacancies"
+def fetch_records_from_hh(url, headers, params):
     page_records = [] 
     for page in count(0, 1):
         params.update({"page":page})
         page_response = requests.get(
-                hh_url, params=params)
+                url, params=params)
         page_response.raise_for_status()
         page_record = page_response.json()
         if page > page_record["pages"]:
@@ -41,12 +42,12 @@ def get_vacancies(hh_page_records):
     return vacancies
 
 
-def predict_rub_salary_for_hh(qacancies):
+def predict_rub_salary_for_hh(vacancies):
     salaries = []
-    for qacancy in qacancies:
-        if qacancy["salary"] and qacancy["salary"]["currency"] == 'RUR':
-            exp_salary = calculate_salary(qacancy["salary"]["to"],
-                                          qacancy["salary"]["from"])
+    for vacancy in vacancies:
+        if vacancy["salary"] and vacancy["salary"]["currency"] == 'RUR':
+            exp_salary = calculate_salary(vacancy["salary"]["to"],
+                                          vacancy["salary"]["from"])
             if exp_salary:
                 salaries.append(exp_salary)
     return salaries
@@ -64,8 +65,8 @@ def calculate_salary(max_salary, min_salary):
 
 def hh_calculate(hh_page_records):
     vacancies_found = hh_page_records[0]["found"]    
-    qacancies = get_vacancies(hh_page_records)
-    rub_salary = predict_rub_salary_for_hh(qacancies)
+    vacancies = get_vacancies(hh_page_records)
+    rub_salary = predict_rub_salary_for_hh(vacancies)
     vacancies_processed = len(rub_salary)
     sum_salary = sum(rub_salary)
     average_salary = sum_salary // vacancies_processed
@@ -74,8 +75,7 @@ def hh_calculate(hh_page_records):
                 "vacancies_processed": vacancies_processed,
                 "average_salary": average_salary
             }
-    if vacancies_found >= 100 and average_salary > 0:
-        return counted_vacancy
+    return counted_vacancy
 
 
 def output_statistic(counted_vacancies, head_table):
@@ -89,9 +89,9 @@ def output_statistic(counted_vacancies, head_table):
     return table.table
 
 
-def fetch_vacancies_from_superjob(vacancy_template, languages, period,
+def fetch_statistic_from_superjob(vacancy_template, languages, period,
                                   region_id):
-    vacancies = {}
+    statistics = {}
     
     params = {
         "catalogues": "Разработка, программирование",
@@ -100,11 +100,14 @@ def fetch_vacancies_from_superjob(vacancy_template, languages, period,
     }
     for language in languages:
         params.update({"keyword": vacancy_template.format(language)})
-        vacancies[language] = fetch_vacancy_from_superjob(params)
-    return vacancies
+        sj_page_records = fetch_records_from_superjob(params)
+        if sj_page_records:
+            counted_vacancy = count_vacancies(sj_page_records)
+            statistics[language] = counted_vacancy
+    return statistics
 
 
-def fetch_vacancy_from_superjob(params):
+def fetch_records_from_superjob(params):
     vacancy_superjob_url = "https://api.superjob.ru/2.0/oauth2/vacancies/"
     headers = {"X-Api-App-Id": superjob_key}
     page_records = []
@@ -115,29 +118,36 @@ def fetch_vacancy_from_superjob(params):
         headers=headers,
         params=params)
         page_response.raise_for_status()
-        loaded_page = page_response.json()
-        if loaded_page["more"] is False:
+        page_record = page_response.json()
+        if page_record["more"] is False:
             break
-        page_records += loaded_page["objects"]
+        page_records.append(page_record)
     return page_records
 
 
-def count_vacancies(vacancies, treshold_value, predict_rub_salary):
-    counted_vacancies = {}
-    for language, page_records in vacancies.items():
-        if len(page_records) > treshold_value:
-            vacancies_found = len(page_records)
-            rub_salary = predict_rub_salary(page_records)
-            vacancies_processed = len(rub_salary)
-            sum_salary = sum(rub_salary)
-            average_salary = sum_salary // vacancies_processed
-            counted_vacancy = {
+def get_vacancies_from_sj(page_records):
+    vacancies = []
+    for page_record in page_records:
+        vacancy = page_record["objects"]
+        vacancies += vacancy
+    return vacancies
+
+
+def count_vacancies(page_records):
+    vacancies_found = page_records[0]["total"]
+    vacancies = get_vacancies_from_sj(page_records)
+    rub_salary = predict_rub_salary_for_superjob(vacancies)
+    vacancies_processed = len(rub_salary)
+    if vacancies_processed > 0:
+        sum_salary = sum(rub_salary)
+        average_salary = sum_salary // vacancies_processed
+        counted_vacancy = {
                 "vacancies_found": vacancies_found,
                 "vacancies_processed": vacancies_processed,
                 "average_salary": average_salary
             }
-            counted_vacancies[language] = counted_vacancy
-    return counted_vacancies
+    return counted_vacancy
+
 
 
 def predict_rub_salary_for_superjob(vacancies):
@@ -152,17 +162,16 @@ def predict_rub_salary_for_superjob(vacancies):
 
 
 
-
-
 if __name__ == "__main__":
     load_dotenv()
     superjob_key = os.getenv("SUPERJOB_KEY")
 
-    languages1 = [
+    languages = [
         "C++", "C", "C#", "Python", "Java", "JavaScript", "Ruby", "PHP", "Go",
         "Scala", "Swift", "R", "Kotlin", "1 С"
     ]
-    languages = ["Swift", "R", "Kotlin", "1 С"]
+
+
 
     vacancy_template = "программист {}"
     period = 1
@@ -172,13 +181,11 @@ if __name__ == "__main__":
     superjob_region_id = 4
     superjob_treshold_value = 10
 
-    superjob_vacancies = fetch_vacancies_from_superjob(vacancy_template, languages,
+    superjob_statistic = fetch_statistic_from_superjob(vacancy_template, languages,
                                                        period,
                                                        superjob_region_id)
 
-    superjob_statistic = count_vacancies(superjob_vacancies,
-                                         superjob_treshold_value,
-                                         predict_rub_salary_for_superjob)
+
 
     print(output_statistic(superjob_statistic, "superjob"))
 
