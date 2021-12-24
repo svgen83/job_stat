@@ -6,51 +6,68 @@ from itertools import count
 from terminaltables import AsciiTable
 
 
-def fetch_statistic_from_hh(vacancy_template, languages, period, region_id):
+def fetch_statistic_from_hh(vacancy_template, languages):
     statistics = {}
+    region_id = 1
+    period = 1
     hh_url = "https://api.hh.ru/vacancies"
     params = {"period": period, "area": region_id}
     hh_description, hh_total = ("items", "found")
-    hh_treshold_value = 100
+    hh_min_amount_vacancies = 100
+
     for language in languages:
         params.update({"text": vacancy_template.format(language)})
-        hh_page_records = fetch_records(hh_url,None,params, get_hh_condition)
-        if hh_page_records[0]["found"] > hh_treshold_value:
-            counted_vacancy = calculate_statistic(hh_page_records,hh_description, hh_total,predict_rub_salary=predict_rub_salary_for_hh)
-        if counted_vacancy:
-            statistics[language] = counted_vacancy
+        hh_page_records = fetch_records(hh_url, None, params, get_hh_condition)
+
+        if hh_page_records[0]["found"] >= hh_min_amount_vacancies:
+            statistic_for_vacancy = calculate_statistic(hh_page_records,
+                                                        hh_description,
+                                                        hh_total,
+                                                        predict_rub_salary=predict_rub_salary_for_hh)
+        if statistic_for_vacancy:
+            statistics[language] = statistic_for_vacancy
     return statistics
 
 
-def fetch_statistic_from_superjob(vacancy_template, languages, period,
-                                  region_id):
+def fetch_statistic_from_sj(vacancy_template, languages):
     statistics = {}
-    superjob_url = "https://api.superjob.ru/2.0/oauth2/vacancies/"
+    region_id = 4
+    period = 2
+    superjob_key = os.getenv("SUPERJOB_KEY")
+    sj_url = "https://api.superjob.ru/2.0/oauth2/vacancies/"
     headers = {"X-Api-App-Id": superjob_key}
     params = {
         "catalogues": "Разработка, программирование",
         "period": period,
-        "town": superjob_region_id
+        "town": region_id
     }
     sj_description, sj_total = ("objects", "total")
+
     for language in languages:
         params.update({"keyword": vacancy_template.format(language)})
-        sj_page_records = fetch_records(superjob_url, headers, params,get_sj_condition)
+        sj_page_records = fetch_records(sj_url,
+                                        headers,
+                                        params,
+                                        get_sj_condition)
+
         if sj_page_records:
-            counted_vacancy = calculate_statistic(sj_page_records,sj_description, sj_total,predict_rub_salary=predict_rub_salary_for_superjob)
-            statistics[language] = counted_vacancy
+            statistic_for_vacancy = calculate_statistic(sj_page_records,
+                                                        sj_description,
+                                                        sj_total,
+                                                        predict_rub_salary=predict_rub_salary_for_sj)
+            statistics[language] = statistic_for_vacancy
     return statistics
 
 
-def fetch_records(url, headers, params,get_condition):
-    page_records = [] 
+def fetch_records(url, headers, params, get_condition):
+    page_records = []
     for page in count(0, 1):
-        params.update({"page":page})
-        page_response = requests.get(
-                url,headers=headers, params=params)
+        params.update({"page": page})
+        page_response = requests.get(url, headers=headers, params=params)
         page_response.raise_for_status()
         page_record = page_response.json()
-        if get_condition(page_record,page):
+
+        if get_condition(page_record, page):
             break
         page_records.append(page_record)
     return page_records
@@ -63,10 +80,10 @@ def get_sj_condition(page_record, page):
 
 def get_hh_condition(page_record, page):
     if page > page_record["pages"]:
-        return True  
+        return True
 
 
-def get_vacancies(page_records,descripton):
+def get_vacancies(page_records, descripton):
     vacancies = []
     for page_record in page_records:
         vacancy = page_record[descripton]
@@ -85,7 +102,7 @@ def predict_rub_salary_for_hh(vacancies):
     return salaries
 
 
-def predict_rub_salary_for_superjob(vacancies):
+def predict_rub_salary_for_sj(vacancies):
     salaries = []
     for vacancy in vacancies:
         if vacancy["currency"] == "rub":
@@ -108,62 +125,43 @@ def calculate_salary(max_salary, min_salary):
     return calculated_salary
 
 
-def calculate_statistic(page_records,description, total, predict_rub_salary):
-    vacancies_found = page_records[0][total]
+def calculate_statistic(page_records, description, total, predict_rub_salary):
     vacancies = get_vacancies(page_records, description)
     rub_salary = predict_rub_salary(vacancies)
-    vacancies_processed = len(rub_salary)
-    if vacancies_processed:
-        sum_salary = sum(rub_salary)
-        average_salary = sum_salary // vacancies_processed
+    if len(rub_salary):
         counted_vacancy = {
-                "vacancies_found": vacancies_found,
-                "vacancies_processed": vacancies_processed,
-                "average_salary": average_salary
+                "vacancies_found": page_records[0][total],
+                "vacancies_processed": len(rub_salary),
+                "average_salary": sum(rub_salary) // len(rub_salary)
             }
     return counted_vacancy
 
 
 def output_statistic(counted_vacancies, head_table):
     table_contents = [("Язык", "Вакансий найдено", "Вакансий обработано",
-                   "Средняя зарплата")]
+                       "Средняя зарплата")]
     for language, vacancy_statistic in counted_vacancies.items():
         table_contents.append((language, vacancy_statistic["vacancies_found"],
-                           vacancy_statistic["vacancies_processed"],
-                           vacancy_statistic["average_salary"]))
+                               vacancy_statistic["vacancies_processed"],
+                               vacancy_statistic["average_salary"]))
     table = AsciiTable(table_contents, head_table)
     return table.table
 
 
 if __name__ == "__main__":
     load_dotenv()
-    superjob_key = os.getenv("SUPERJOB_KEY")
 
     languages = [
         "C++", "C", "C#", "Python", "Java", "JavaScript", "Ruby", "PHP", "Go",
         "Scala", "Swift", "R", "Kotlin", "1 С"
     ]
 
-
-
     vacancy_template = "программист {}"
-    period = 1
-    hh_region_id = 1
-    
 
-    superjob_region_id = 4
-    
+    sj_statistic = fetch_statistic_from_sj(vacancy_template, languages)
 
-    superjob_statistic = fetch_statistic_from_superjob(vacancy_template, languages,
-                                                       period,
-                                                       superjob_region_id)
+    print(output_statistic(sj_statistic, "superjob"))
 
-
-
-    print(output_statistic(superjob_statistic, "superjob"))
-
-    hh_statistic = fetch_statistic_from_hh(vacancy_template, languages, period,
-                                           hh_region_id)
-
+    hh_statistic = fetch_statistic_from_hh(vacancy_template, languages)
 
     print(output_statistic(hh_statistic, "headhunter"))
