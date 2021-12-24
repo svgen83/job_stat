@@ -10,36 +10,77 @@ def fetch_statistic_from_hh(vacancy_template, languages, period, region_id):
     hh_vacancies = {}
     hh_url = "https://api.hh.ru/vacancies"
     params = {"period": period, "area": region_id}
+    decription = "items"
     for language in languages:
         params.update({"text": vacancy_template.format(language)})
-        hh_page_records = fetch_records_from_hh(hh_url,None,params)
+        hh_page_records = fetch_records(hh_url,None,params, get_hh_condition)
         if hh_page_records[0]["found"]>100:
-            counted_vacancy = hh_calculate(hh_page_records)
+            counted_vacancy = hh_calculate(hh_page_records,decription)
         if counted_vacancy:
             hh_vacancies[language] = counted_vacancy
     return hh_vacancies
 
 
-def fetch_records_from_hh(url, headers, params):
+def fetch_statistic_from_superjob(vacancy_template, languages, period,
+                                  region_id):
+    statistics = {}
+    superjob_url = "https://api.superjob.ru/2.0/oauth2/vacancies/"
+    headers = {"X-Api-App-Id": superjob_key}
+    params = {
+        "catalogues": "Разработка, программирование",
+        "period": period,
+        "town": superjob_region_id
+    }
+    decription = "objects"
+    for language in languages:
+        params.update({"keyword": vacancy_template.format(language)})
+        sj_page_records = fetch_records(superjob_url, headers, params,get_sj_condition)
+        if sj_page_records:
+            counted_vacancy = count_vacancies(sj_page_records,decription)
+            statistics[language] = counted_vacancy
+    return statistics
+
+
+def fetch_records(url, headers, params,get_condition):
     page_records = [] 
     for page in count(0, 1):
         params.update({"page":page})
         page_response = requests.get(
-                url, params=params)
+                url,headers=headers, params=params)
         page_response.raise_for_status()
         page_record = page_response.json()
-        if page > page_record["pages"]:
+        if get_condition(page_record,page):
             break
         page_records.append(page_record)
     return page_records
 
 
-def get_vacancies(hh_page_records):
+def get_sj_condition(page_record, page):
+    if page_record["more"] is False:
+        return True
+
+
+def get_hh_condition(page_record, page):
+    if page > page_record["pages"]:
+        return True  
+
+
+
+def get_vacancies(page_records,descripton):
     vacancies = []
-    for hh_page_record in hh_page_records:
-        vacancy = hh_page_record["items"]
+    for page_record in page_records:
+        vacancy = page_record[descripton]
         vacancies += vacancy
     return vacancies
+
+
+def get_vacancies_from_sj(page_records):
+    vacancies = []
+    for page_record in page_records:
+        vacancy = page_record["objects"]
+        vacancies += vacancy
+    return vacancies
+
 
 
 def predict_rub_salary_for_hh(vacancies):
@@ -63,9 +104,9 @@ def calculate_salary(max_salary, min_salary):
         calculated_salary = None
     return calculated_salary
 
-def hh_calculate(hh_page_records):
+def hh_calculate(hh_page_records, description):
     vacancies_found = hh_page_records[0]["found"]    
-    vacancies = get_vacancies(hh_page_records)
+    vacancies = get_vacancies(hh_page_records, description)
     rub_salary = predict_rub_salary_for_hh(vacancies)
     vacancies_processed = len(rub_salary)
     sum_salary = sum(rub_salary)
@@ -89,53 +130,11 @@ def output_statistic(counted_vacancies, head_table):
     return table.table
 
 
-def fetch_statistic_from_superjob(vacancy_template, languages, period,
-                                  region_id):
-    statistics = {}
-    
-    params = {
-        "catalogues": "Разработка, программирование",
-        "period": period,
-        "town": superjob_region_id
-    }
-    for language in languages:
-        params.update({"keyword": vacancy_template.format(language)})
-        sj_page_records = fetch_records_from_superjob(params)
-        if sj_page_records:
-            counted_vacancy = count_vacancies(sj_page_records)
-            statistics[language] = counted_vacancy
-    return statistics
 
 
-def fetch_records_from_superjob(params):
-    vacancy_superjob_url = "https://api.superjob.ru/2.0/oauth2/vacancies/"
-    headers = {"X-Api-App-Id": superjob_key}
-    page_records = []
-    for page in count(0, 1):
-        params.update({"page":page})
-        page_response = requests.get(
-        vacancy_superjob_url,
-        headers=headers,
-        params=params)
-        page_response.raise_for_status()
-        page_record = page_response.json()
-        if page_record["more"] is False:
-            break
-        page_records.append(page_record)
-    return page_records
-
-
-def get_vacancies_from_sj(page_records):
-    vacancies = []
-    for page_record in page_records:
-        vacancy = page_record["objects"]
-        vacancies += vacancy
-    return vacancies
-
-
-def count_vacancies(page_records):
+def count_vacancies(page_records,decription):
     vacancies_found = page_records[0]["total"]
-    vacancies = get_vacancies_from_sj(page_records)
+    vacancies = get_vacancies(page_records, decription)
     rub_salary = predict_rub_salary_for_superjob(vacancies)
     vacancies_processed = len(rub_salary)
     if vacancies_processed > 0:
