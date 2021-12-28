@@ -11,7 +11,7 @@ def fetch_statistic_from_hh(vacancy_template, languages):
     region_id = 1
     url = "https://api.hh.ru/vacancies"
     params = {"area": region_id}
-    description, total = ("items", "found")
+    description = "items"
     min_amount_vacancies = 100
 
     for language in languages:
@@ -19,7 +19,7 @@ def fetch_statistic_from_hh(vacancy_template, languages):
         page_records = fetch_records(url, None, params, get_condition_for_hh_pagination)
 
         if page_records[0]["found"] >= min_amount_vacancies:
-            vacancies_found = page_records[0][total]
+            vacancies_found = page_records[0]["found"]
             statistic_for_vacancy = calculate_statistic(page_records,
                                                         description,
                                                         vacancies_found,
@@ -38,7 +38,7 @@ def fetch_statistic_from_sj(vacancy_template, languages, superjob_key):
         "catalogues": "Разработка, программирование",
         "town": region_id
     }
-    description, total = ("objects", "total")
+    description = "objects"
 
     for language in languages:
         params.update({"keyword": vacancy_template.format(language)})
@@ -48,16 +48,16 @@ def fetch_statistic_from_sj(vacancy_template, languages, superjob_key):
                                      get_condition_for_sj_pagination)
 
         if page_records:
-            vacancies_found = page_records[0][total]
-            statistic_for_vacancy = calculate_statistic(page_records,
+            vacancies_found = page_records[0]["total"]
+            statistic_for_language = calculate_statistic(page_records,
                                                         description,
                                                         vacancies_found,
                                                         predict_rub_salary=predict_rub_salary_for_sj)
-            statistics[language] = statistic_for_vacancy
+            statistics[language] = statistic_for_language
     return statistics
 
 
-def fetch_records(url, headers, params, get_condition):
+def fetch_records(url, headers, params, get_condition_for_pagination):
     page_records = []
     for page in count(0, 1):
         params.update({"page": page})
@@ -65,7 +65,7 @@ def fetch_records(url, headers, params, get_condition):
         page_response.raise_for_status()
         page_record = page_response.json()
 
-        if get_condition(page_record, page):
+        if get_condition_for_pagination(page_record, page):
             break
         page_records.append(page_record)
     return page_records
@@ -79,14 +79,6 @@ def get_condition_for_sj_pagination(page_record, page):
 def get_condition_for_hh_pagination(page_record, page):
     if page == 99 or page > page_record["pages"]:
         return True
-
-
-def get_vacancies(page_records, description):
-    vacancies = []
-    for page_record in page_records:
-        vacancy = page_record[description]
-        vacancies += vacancy
-    return vacancies
 
 
 def predict_rub_salary_for_hh(page_records, description):
@@ -127,18 +119,18 @@ def calculate_salary(max_salary, min_salary):
 def calculate_statistic(page_records, description, vacancies_found, predict_rub_salary):
     rub_salary = predict_rub_salary(page_records, description)
     if len(rub_salary):
-        counted_vacancy = {
+        statistic_for_language = {
                 "vacancies_found": vacancies_found,
                 "vacancies_processed": len(rub_salary),
                 "average_salary": sum(rub_salary) // len(rub_salary)
             }
-    return counted_vacancy
+    return statistic_for_language
 
 
-def output_statistic(counted_vacancies, head_table):
+def output_statistic(statistics, head_table):
     table_contents = [("Язык", "Вакансий найдено", "Вакансий обработано",
                        "Средняя зарплата")]
-    for language, vacancy_statistic in counted_vacancies.items():
+    for language, vacancy_statistic in statistics.items():
         table_contents.append((language, vacancy_statistic["vacancies_found"],
                                vacancy_statistic["vacancies_processed"],
                                vacancy_statistic["average_salary"]))
