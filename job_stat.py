@@ -19,11 +19,11 @@ def fetch_statistic_from_hh(vacancy_template, languages):
 
         if page_records[0]["found"] >= min_amount_vacancies:
             vacancies_found = page_records[0]["found"]
-            statistic_for_vacancy = calculate_statistic(page_records,
-                                                        vacancies_found,
-                                                        predict_rub_salary=predict_rub_salary_for_hh)
-        if statistic_for_vacancy:
-            statistics[language] = statistic_for_vacancy
+            statistic_for_language = calculate_statistic(page_records,
+                                                         vacancies_found,
+                                                         predict_rub_salary_for_hh)
+        if statistic_for_language:
+            statistics[language] = statistic_for_language
     return statistics
 
 
@@ -48,7 +48,8 @@ def fetch_statistic_from_sj(vacancy_template, languages, superjob_key):
             vacancies_found = page_records[0]["total"]
             statistic_for_language = calculate_statistic(page_records,
                                                          vacancies_found,
-                                                         predict_rub_salary=predict_rub_salary_for_sj)
+                                                         predict_rub_salary_for_sj)
+        if statistic_for_language:
             statistics[language] = statistic_for_language
     return statistics
 
