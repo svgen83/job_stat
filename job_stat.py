@@ -17,7 +17,7 @@ def fetch_statistic_from_hh(vacancy_template, languages):
 
     for language in languages:
         params.update({"text": vacancy_template.format(language)})
-        page_records = fetch_records(url, None, params, get_hh_condition)
+        page_records = fetch_records(url, None, params, get_condition_for_hh_pagination)
 
         if page_records[0]["found"] >= min_amount_vacancies:
             statistic_for_vacancy = calculate_statistic(page_records,
@@ -47,7 +47,7 @@ def fetch_statistic_from_sj(vacancy_template, languages, superjob_key):
         page_records = fetch_records(url,
                                      headers,
                                      params,
-                                     get_sj_condition)
+                                     get_condition_for_sj_pagination)
 
         if page_records:
             statistic_for_vacancy = calculate_statistic(page_records,
@@ -72,12 +72,12 @@ def fetch_records(url, headers, params, get_condition):
     return page_records
 
 
-def get_sj_condition(page_record, page):
+def get_condition_for_sj_pagination(page_record, page):
     if page_record["more"] is False:
         return True
 
 
-def get_hh_condition(page_record, page):
+def get_condition_for_hh_pagination(page_record, page):
     if page > page_record["pages"]:
         return True
 
