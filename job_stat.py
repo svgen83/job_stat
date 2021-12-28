@@ -10,50 +10,49 @@ def fetch_statistic_from_hh(vacancy_template, languages):
     statistics = {}
     region_id = 1
     period = 1
-    hh_url = "https://api.hh.ru/vacancies"
+    url = "https://api.hh.ru/vacancies"
     params = {"period": period, "area": region_id}
-    hh_description, hh_total = ("items", "found")
-    hh_min_amount_vacancies = 100
+    description, total = ("items", "found")
+    min_amount_vacancies = 100
 
     for language in languages:
         params.update({"text": vacancy_template.format(language)})
-        hh_page_records = fetch_records(hh_url, None, params, get_hh_condition)
+        page_records = fetch_records(url, None, params, get_hh_condition)
 
-        if hh_page_records[0]["found"] >= hh_min_amount_vacancies:
-            statistic_for_vacancy = calculate_statistic(hh_page_records,
-                                                        hh_description,
-                                                        hh_total,
+        if page_records[0]["found"] >= min_amount_vacancies:
+            statistic_for_vacancy = calculate_statistic(page_records,
+                                                        description,
+                                                        total,
                                                         predict_rub_salary=predict_rub_salary_for_hh)
         if statistic_for_vacancy:
             statistics[language] = statistic_for_vacancy
     return statistics
 
 
-def fetch_statistic_from_sj(vacancy_template, languages):
+def fetch_statistic_from_sj(vacancy_template, languages, superjob_key):
     statistics = {}
     region_id = 4
     period = 2
-    superjob_key = os.getenv("SUPERJOB_KEY")
-    sj_url = "https://api.superjob.ru/2.0/oauth2/vacancies/"
+    url = "https://api.superjob.ru/2.0/oauth2/vacancies/"
     headers = {"X-Api-App-Id": superjob_key}
     params = {
         "catalogues": "Разработка, программирование",
         "period": period,
         "town": region_id
     }
-    sj_description, sj_total = ("objects", "total")
+    description, total = ("objects", "total")
 
     for language in languages:
         params.update({"keyword": vacancy_template.format(language)})
-        sj_page_records = fetch_records(sj_url,
-                                        headers,
-                                        params,
-                                        get_sj_condition)
+        page_records = fetch_records(url,
+                                     headers,
+                                     params,
+                                     get_sj_condition)
 
-        if sj_page_records:
-            statistic_for_vacancy = calculate_statistic(sj_page_records,
-                                                        sj_description,
-                                                        sj_total,
+        if page_records:
+            statistic_for_vacancy = calculate_statistic(page_records,
+                                                        description,
+                                                        total,
                                                         predict_rub_salary=predict_rub_salary_for_sj)
             statistics[language] = statistic_for_vacancy
     return statistics
@@ -148,6 +147,8 @@ def output_statistic(counted_vacancies, head_table):
 if __name__ == "__main__":
     load_dotenv()
 
+    superjob_key = os.getenv("SUPERJOB_KEY")
+
     languages = [
         "C++", "C", "C#", "Python", "Java", "JavaScript", "Ruby", "PHP", "Go",
         "Scala", "Swift", "R", "Kotlin", "1 С"
@@ -155,7 +156,7 @@ if __name__ == "__main__":
 
     vacancy_template = "программист {}"
 
-    sj_statistic = fetch_statistic_from_sj(vacancy_template, languages)
+    sj_statistic = fetch_statistic_from_sj(vacancy_template, languages, superjob_key)
 
     print(output_statistic(sj_statistic, "superjob"))
 
