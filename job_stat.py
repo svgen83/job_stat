@@ -19,9 +19,10 @@ def fetch_statistic_from_hh(vacancy_template, languages):
         page_records = fetch_records(url, None, params, get_condition_for_hh_pagination)
 
         if page_records[0]["found"] >= min_amount_vacancies:
+            vacancies_found = page_records[0][total]
             statistic_for_vacancy = calculate_statistic(page_records,
                                                         description,
-                                                        total,
+                                                        vacancies_found,
                                                         predict_rub_salary=predict_rub_salary_for_hh)
         if statistic_for_vacancy:
             statistics[language] = statistic_for_vacancy
@@ -47,9 +48,10 @@ def fetch_statistic_from_sj(vacancy_template, languages, superjob_key):
                                      get_condition_for_sj_pagination)
 
         if page_records:
+            vacancies_found = page_records[0][total]
             statistic_for_vacancy = calculate_statistic(page_records,
                                                         description,
-                                                        total,
+                                                        vacancies_found,
                                                         predict_rub_salary=predict_rub_salary_for_sj)
             statistics[language] = statistic_for_vacancy
     return statistics
@@ -79,33 +81,37 @@ def get_condition_for_hh_pagination(page_record, page):
         return True
 
 
-def get_vacancies(page_records, descripton):
+def get_vacancies(page_records, description):
     vacancies = []
     for page_record in page_records:
-        vacancy = page_record[descripton]
+        vacancy = page_record[description]
         vacancies += vacancy
     return vacancies
 
 
-def predict_rub_salary_for_hh(vacancies):
+def predict_rub_salary_for_hh(page_records, description):
     salaries = []
-    for vacancy in vacancies:
-        if vacancy["salary"] and vacancy["salary"]["currency"] == 'RUR':
-            exp_salary = calculate_salary(vacancy["salary"]["to"],
+    for page_record in page_records:
+        vacancies = page_record[description]
+        for vacancy in vacancies:
+            if vacancy["salary"] and vacancy["salary"]["currency"] == 'RUR':
+                exp_salary = calculate_salary(vacancy["salary"]["to"],
                                           vacancy["salary"]["from"])
-            if exp_salary:
-                salaries.append(exp_salary)
+                if exp_salary:
+                    salaries.append(exp_salary)
     return salaries
 
 
-def predict_rub_salary_for_sj(vacancies):
+def predict_rub_salary_for_sj(page_records, description):
     salaries = []
-    for vacancy in vacancies:
-        if vacancy["currency"] == "rub":
-            exp_salary = calculate_salary(vacancy["payment_to"],
+    for page_record in page_records:
+        vacancies = page_record[description]
+        for vacancy in vacancies:
+            if vacancy["currency"] == "rub":
+                exp_salary = calculate_salary(vacancy["payment_to"],
                                           vacancy["payment_from"])
-            if exp_salary:
-                salaries.append(exp_salary)
+                if exp_salary:
+                    salaries.append(exp_salary)
     return salaries
 
 
@@ -118,12 +124,11 @@ def calculate_salary(max_salary, min_salary):
         return int(0.8 * max_salary)
 
 
-def calculate_statistic(page_records, description, total, predict_rub_salary):
-    vacancies = get_vacancies(page_records, description)
-    rub_salary = predict_rub_salary(vacancies)
+def calculate_statistic(page_records, description, vacancies_found, predict_rub_salary):
+    rub_salary = predict_rub_salary(page_records, description)
     if len(rub_salary):
         counted_vacancy = {
-                "vacancies_found": page_records[0][total],
+                "vacancies_found": vacancies_found,
                 "vacancies_processed": len(rub_salary),
                 "average_salary": sum(rub_salary) // len(rub_salary)
             }
