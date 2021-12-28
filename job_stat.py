@@ -9,9 +9,8 @@ from terminaltables import AsciiTable
 def fetch_statistic_from_hh(vacancy_template, languages):
     statistics = {}
     region_id = 1
-    period = 1
     url = "https://api.hh.ru/vacancies"
-    params = {"period": period, "area": region_id}
+    params = {"area": region_id}
     description, total = ("items", "found")
     min_amount_vacancies = 100
 
@@ -32,12 +31,10 @@ def fetch_statistic_from_hh(vacancy_template, languages):
 def fetch_statistic_from_sj(vacancy_template, languages, superjob_key):
     statistics = {}
     region_id = 4
-    period = 2
     url = "https://api.superjob.ru/2.0/oauth2/vacancies/"
     headers = {"X-Api-App-Id": superjob_key}
     params = {
         "catalogues": "Разработка, программирование",
-        "period": period,
         "town": region_id
     }
     description, total = ("objects", "total")
@@ -78,7 +75,7 @@ def get_condition_for_sj_pagination(page_record, page):
 
 
 def get_condition_for_hh_pagination(page_record, page):
-    if page > page_record["pages"]:
+    if page == 99 or page > page_record["pages"]:
         return True
 
 
