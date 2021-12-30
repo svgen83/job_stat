@@ -107,9 +107,9 @@ def predict_rub_salary_for_sj(page_records):
 def calculate_salary(max_salary, min_salary):
     if max_salary and min_salary:
         return (min_salary + max_salary) // 2
-    elif min_salary and not max_salary:
+    elif min_salary:
         return int(1.2 * min_salary)
-    elif max_salary and not min_salary:
+    elif max_salary:
         return int(0.8 * max_salary)
 
 
