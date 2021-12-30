@@ -68,9 +68,8 @@ def fetch_records(url, headers, params, get_condition_for_pagination):
     return page_records
 
 
-def get_condition_for_sj_pagination(page_record, page):
-    if page_record["more"] is False:
-        return True
+def get_condition_for_sj_pagination(page_record, *_):
+    return not page_record["more"]
 
 
 def get_condition_for_hh_pagination(page_record, page):
