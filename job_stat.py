@@ -15,13 +15,15 @@ def fetch_statistic_from_hh(vacancy_template, languages):
 
     for language in languages:
         params.update({"text": vacancy_template.format(language)})
-        page_records = fetch_records(url, None, params, get_condition_for_hh_pagination)
+        page_records = fetch_records(url, None, params,
+                                     get_condition_for_hh_pagination)
 
         if page_records[0]["found"] >= min_amount_vacancies:
             vacancies_found = page_records[0]["found"]
-            statistic_for_language = calculate_statistic(page_records,
-                                                         vacancies_found,
-                                                         predict_rub_salary_for_hh)
+            statistic_for_language = calculate_statistic(
+                page_records,
+                vacancies_found,
+                predict_rub_salary_for_hh)
         if statistic_for_language:
             statistics[language] = statistic_for_language
     return statistics
@@ -46,9 +48,10 @@ def fetch_statistic_from_sj(vacancy_template, languages, superjob_key):
 
         if page_records:
             vacancies_found = page_records[0]["total"]
-            statistic_for_language = calculate_statistic(page_records,
-                                                         vacancies_found,
-                                                         predict_rub_salary_for_sj)
+            statistic_for_language = calculate_statistic(
+                page_records,
+                vacancies_found,
+                predict_rub_salary_for_sj)
         if statistic_for_language:
             statistics[language] = statistic_for_language
     return statistics
@@ -73,7 +76,7 @@ def get_condition_for_sj_pagination(page_record, *_):
 
 
 def get_condition_for_hh_pagination(page_record, page):
-    if page == 99 or page > page_record["pages"]:
+    if page == page_record["pages"] - 1:
         return True
 
 
@@ -83,8 +86,9 @@ def predict_rub_salary_for_hh(page_records):
         vacancies = page_record["items"]
         for vacancy in vacancies:
             if vacancy["salary"] and vacancy["salary"]["currency"] == 'RUR':
-                exp_salary = calculate_salary(vacancy["salary"]["to"],
-                                          vacancy["salary"]["from"])
+                exp_salary = calculate_salary(
+                    vacancy["salary"]["to"],
+                    vacancy["salary"]["from"])
                 if exp_salary:
                     salaries.append(exp_salary)
     return salaries
@@ -96,8 +100,9 @@ def predict_rub_salary_for_sj(page_records):
         vacancies = page_record["objects"]
         for vacancy in vacancies:
             if vacancy["currency"] == "rub":
-                exp_salary = calculate_salary(vacancy["payment_to"],
-                                          vacancy["payment_from"])
+                exp_salary = calculate_salary(
+                    vacancy["payment_to"],
+                    vacancy["payment_from"])
                 if exp_salary:
                     salaries.append(exp_salary)
     return salaries
@@ -120,7 +125,7 @@ def calculate_statistic(page_records, vacancies_found, predict_rub_salary):
                 "vacancies_processed": len(rub_salary),
                 "average_salary": sum(rub_salary) // len(rub_salary)
             }
-    return statistic_for_language
+        return statistic_for_language
 
 
 def output_statistic(statistics, head_table):
@@ -146,7 +151,10 @@ if __name__ == "__main__":
 
     vacancy_template = "программист {}"
 
-    sj_statistic = fetch_statistic_from_sj(vacancy_template, languages, superjob_key)
+    sj_statistic = fetch_statistic_from_sj(
+        vacancy_template,
+        languages,
+        superjob_key)
 
     print(output_statistic(sj_statistic, "superjob"))
 
